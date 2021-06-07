@@ -30,16 +30,12 @@ wp(:,:,29) =[0.0 0.0 -1 ; 2.645646 2.161043 -1 ; -0.369564 3.212353 -1 ; 3.27579
 wp(:,:,30) =[0.0 0.0 -1 ; 1.221291 2.767895 -1 ; 0.33887 1.695452 -1 ; -0.788802 2.789864 -1 ; 2.993382 0.806459 -1 ; 2.85958 1.662599 -1 ; 1.670497 1.729915 -1 ; 3.006936 6.105978 -1 ; 2.592059 3.766806 -1 ; -1.977646 1.910536 -1 ; 1.638906 0.981032 -1 ; 3.081237 -2.565238 -1 ; 3.335681 4.314842 -1 ; 4.477275 4.815456 -1 ; 0.0 0.0 -1 ];
 wp(:,:,31) =[0.0 0.0 -1 ; 3.448928 2.571057 -1 ; 2.058277 3.36735 -1 ; 0.103673 5.483225 -1 ; 2.170619 5.832834 -1 ; 4.338494 2.026307 -1 ; 5.636998 2.022063 -1 ; 1.52035 2.366089 -1 ; 2.808934 2.663361 -1 ; 3.855782 2.173084 -1 ; 2.208236 1.85356 -1 ; 1.268941 0.433215 -1 ; 3.127848 3.406011 -1 ; 0.86631 -0.20553 -1 ; 0.0 0.0 -1 ];
 
-
-
-
-
-
-
-
-
 % wp = [0 0 -1; 1.5 0 -1; 1.5 1.5 -1; 0 1.5 -1; 0 0 -1; 1.5 0 -1; 1.5 1.5 -1; 0 1.5 -1; 0 0 -1];
 % wp(:,:,2) = [2 0 -1; 1.5 0 -1; 1.5 1.5 -1; 0 1.5 -1; 0 0 -1; 1.5 0 -1; 1.5 1.5 -1; 0 1.5 -1; 0 0 -1];
+
+
+
+% Declare Global Valriables
     
 numdimsA = ndims(wp);
 % mdl = 'parrotMinidroneWaypointFollower'
@@ -50,19 +46,24 @@ init_count =0.0;
 Fault_Dur = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5];
 Phase_Delay = [0, 1, 2,3,4];
 FaultVal = [3,4,5,6];
-len_sim_each_wp = 4;
-num_wp = 10;
+len_sim_each_wp = 2;
+num_wp = 1;
 
 
 
-for j = 1:num_wp
+for j = 1:num_wp  % Iteration for the waypoints 
     
-    
+
     
     Sensors.IMU.noiseSeeds = noise_Seeds_original
     
     for i = 1:len_sim_each_wp
+        
+    waypoint = wp(:,:,j)
+    Fault_Category = 1;  % Bias
+
     
+    % Get and set fault values
     AccFI1 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI1/FIBlock');
     AccFI2 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI2/FIBlock');
     AccFI3 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI3/FIBlock');
@@ -75,7 +76,6 @@ for j = 1:num_wp
     AccX_FI_FaultEffect = AccFI1.Parameters(7);
     AccX_FI_EffectValue = AccFI1.Parameters(8);
                  
-    Fault_Category = 1;
     
     AccX_FI_Enable.set('Value', 'on');
 
@@ -159,21 +159,23 @@ for j = 1:num_wp
 %     new_noise_Seeds = (noise_Seeds + ceil(noise_Seeds*0.05))
 %     Sensors.IMU.noiseSeeds = new_noise_Seeds;
 %        
-    waypoint = wp(:,:,j)
     
     try
         sim('parrotMinidroneWaypointFollower.slx')
         sm = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
         ts_name = timeseries(sm,Acc.x.Time);
-        filename = strcat("Faulty_Simulation_wp_",int2str(count),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(i));
+        ts_name = resample(ts_name,int16(0.01),'linear');
+        filename = strcat("Faulty_Simulation_wp_",int2str(j),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(i));
         save(filename,"ts_name",'-v7.3');
-        count = count + 1
+%         count = count + 1
     catch
         sm = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
         ts_name = timeseries(sm,Acc.x.Time);
-        filename = strcat("Faulty_Simulation_wp_",int2str(count),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(i));
+        ts_name = resample(ts_name,2,1,'linear');
+
+        filename = strcat("Faulty_Simulation_wp_",int2str(j),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(i));
         save(filename,"ts_name",'-v7.3');
-        count = count + 1
+%         count = count + 1
        
     end
     
@@ -188,435 +190,271 @@ for j = 1:num_wp
     
     end
     
-    count = init_count;
-    
     clear sm Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
-    clear Sensors.IMU.noiseSeeds Fault_Category ;
+    clear Sensors.IMU.noiseSeeds Fault_Category;
     clear AccFI1 AccFI2 AccFI3;
     clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
-
-    
-    for k = 1:len_sim_each_wp
-        
-    Fault_Category = 2; % stuck at
-
-    
-    AccFI1 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI1/FIBlock');
-    AccFI2 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI2/FIBlock');
-    AccFI3 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI3/FIBlock');
-
-    AccX_FI_Enable = AccFI1.Parameters(2);
-    AccX_FI_FaultType = AccFI1.Parameters(3);
-    AccX_FI_FaultValue = AccFI1.Parameters(4);
-    AccX_FI_FaultEvent = AccFI1.Parameters(5);
-    AccX_FI_EventValue = AccFI1.Parameters(6);
-    AccX_FI_FaultEffect = AccFI1.Parameters(7);
-    AccX_FI_EffectValue = AccFI1.Parameters(8);
-                 
-    
-    AccX_FI_Enable.set('Value', 'on');
-
-    AccX_FI_FaultType.set('Value', 'Stuck-at');
-    
-%     randomIndex_FaultValue = randi(length(FaultVal), 1)
-% 
-%     AccX_FI_FaultValue.set('Value', string(FaultVal(randomIndex_FaultValue)));
-    
-    AccX_FI_FaultEvent.set('Value', 'Deterministic');
-    
-    randomIndex_Phase_Delay = randi(length(Phase_Delay), 1)
-    
-    AccX_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
-    
-    AccX_FI_FaultEffect.set('Value', 'Constant time');
-    
-    randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
-    AccX_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
-
-    
-    
-    
-%     AccY_FI_Enable = AccFI2.Parameters(2);
-%     AccY_FI_FaultType = AccFI2.Parameters(3);
-%     AccY_FI_FaultValue = AccFI2.Parameters(4);
-%     AccY_FI_FaultEvent = AccFI2.Parameters(5);
-%     AccY_FI_EventValue = AccFI2.Parameters(6);
-%     AccY_FI_FaultEffect = AccFI2.Parameters(7);
-%     AccY_FI_EffectValue = AccFI2.Parameters(8);
-%                  
-%     
-%     AccY_FI_Enable.set('Value', 'on');
-% 
-%     AccY_FI_FaultType.set('Value', 'Bias/Offset');
-%     
-% %     randomIndex_FaultValue = randi(length(FaultVal), 1)
-% 
-%     AccY_FI_FaultValue.set('Value', string(FaultVal(randomIndex_FaultValue)));    
-%     
-%     AccY_FI_FaultEvent.set('Value', 'Deterministic');
-%     
-% %     randomIndex_Phase_Delay = randi(length(Phase_Delay), 1);
-%     AccY_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
-%     
-%     AccY_FI_FaultEffect.set('Value', 'Constant time');
-%     
-% %     randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
-%     AccY_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
-% 
-%     
-    
-    
-%     AccZ_FI_Enable = AccFI3.Parameters(2);
-%     AccZ_FI_FaultType = AccFI3.Parameters(3);
-%     AccZ_FI_FaultValue = AccFI3.Parameters(4);
-%     AccZ_FI_FaultEvent = AccFI3.Parameters(5);
-%     AccZ_FI_EventValue = AccFI3.Parameters(6);
-%     AccZ_FI_FaultEffect = AccFI3.Parameters(7);
-%     AccZ_FI_EffectValue = AccFI3.Parameters(8);
-%                  
-%     
-%     AccZ_FI_Enable.set('Value', 'on');
-% 
-%     AccZ_FI_FaultType.set('Value', 'Bias/Offset');
-%     
-%     AccZ_FI_FaultValue.set('Value', string(FaultVal(randomIndex_FaultValue)));    
-%     
-%     AccZ_FI_FaultEvent.set('Value', 'Deterministic');
-%     
-% %     randomIndex_Phase_Delay = randi(length(Phase_Delay), 1);
-%     AccZ_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
-%     
-%     AccZ_FI_FaultEffect.set('Value', 'Constant time');
-%     
-% %     randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
-%     AccZ_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
-% 
-%     
-%     noise_Seeds  = Sensors.IMU.noiseSeeds;
-%     new_noise_Seeds = (noise_Seeds + ceil(noise_Seeds*0.05))
-%     Sensors.IMU.noiseSeeds = new_noise_Seeds;
-%        
-    waypoint = wp(:,:,j)
-    
-    try
-        sim('parrotMinidroneWaypointFollower.slx')
-        sm_stuckat = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
-        ts_name_stuckat = timeseries(sm_stuckat,Acc.x.Time);
-        filename = strcat("Faulty_Simulation_wp_",int2str(count),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(k));
-        save(filename,"ts_name_stuckat",'-v7.3');
-        count = count + 1
-        
-    catch
-        sm_stuckat = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
-        ts_name_stuckat = timeseries(sm_stuckat,Acc.x.Time);
-        filename = strcat("Faulty_Simulation_wp_",int2str(count),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(k));
-        save(filename,"ts_name_stuckat",'-v7.3');
-        count = count + 1
-        
-    end
-    
-   
-    clear sm_stuckat ts_name_stuckat Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
-    clear Sensors.IMU.noiseSeeds Fault_Category ;
-    clear AccFI1 AccFI2 AccFI3;
-    clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
-
-    
-    end
-    
-    count = init_count;
-    
-    clear sm Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
-    clear Sensors.IMU.noiseSeeds Fault_Category ;
-    clear AccFI1 AccFI2 AccFI3;
-    clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
-
-       
-    for l = 1:len_sim_each_wp
-        
-    Fault_Category = 3; % noise
-
-    
-    AccFI1 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI1/FIBlock');
-    AccFI2 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI2/FIBlock');
-    AccFI3 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI3/FIBlock');
-
-    AccX_FI_Enable = AccFI1.Parameters(2);
-    AccX_FI_FaultType = AccFI1.Parameters(3);
-    AccX_FI_FaultValue = AccFI1.Parameters(4);
-    AccX_FI_FaultEvent = AccFI1.Parameters(5);
-    AccX_FI_EventValue = AccFI1.Parameters(6);
-    AccX_FI_FaultEffect = AccFI1.Parameters(7);
-    AccX_FI_EffectValue = AccFI1.Parameters(8);
-                 
-    
-    AccX_FI_Enable.set('Value', 'on');
-
-    AccX_FI_FaultType.set('Value', 'Noise');
-    
-%     randomIndex_FaultValue = randi(length(FaultVal), 1)
-% 
-    AccX_FI_FaultValue.set('Value', '100');
-    
-    AccX_FI_FaultEvent.set('Value', 'Deterministic');
-    
-    randomIndex_Phase_Delay = randi(length(Phase_Delay), 1)
-    
-    AccX_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
-    
-    AccX_FI_FaultEffect.set('Value', 'Constant time');
-    
-    randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
-    AccX_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
-
-    
-    
-    
-%     AccY_FI_Enable = AccFI2.Parameters(2);
-%     AccY_FI_FaultType = AccFI2.Parameters(3);
-%     AccY_FI_FaultValue = AccFI2.Parameters(4);
-%     AccY_FI_FaultEvent = AccFI2.Parameters(5);
-%     AccY_FI_EventValue = AccFI2.Parameters(6);
-%     AccY_FI_FaultEffect = AccFI2.Parameters(7);
-%     AccY_FI_EffectValue = AccFI2.Parameters(8);
-%                  
-%     
-%     AccY_FI_Enable.set('Value', 'on');
-% 
-%     AccY_FI_FaultType.set('Value', 'Bias/Offset');
-%     
-% %     randomIndex_FaultValue = randi(length(FaultVal), 1)
-% 
-%     AccY_FI_FaultValue.set('Value', string(FaultVal(randomIndex_FaultValue)));    
-%     
-%     AccY_FI_FaultEvent.set('Value', 'Deterministic');
-%     
-% %     randomIndex_Phase_Delay = randi(length(Phase_Delay), 1);
-%     AccY_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
-%     
-%     AccY_FI_FaultEffect.set('Value', 'Constant time');
-%     
-% %     randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
-%     AccY_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
-% 
-%     
-    
-    
-%     AccZ_FI_Enable = AccFI3.Parameters(2);
-%     AccZ_FI_FaultType = AccFI3.Parameters(3);
-%     AccZ_FI_FaultValue = AccFI3.Parameters(4);
-%     AccZ_FI_FaultEvent = AccFI3.Parameters(5);
-%     AccZ_FI_EventValue = AccFI3.Parameters(6);
-%     AccZ_FI_FaultEffect = AccFI3.Parameters(7);
-%     AccZ_FI_EffectValue = AccFI3.Parameters(8);
-%                  
-%     
-%     AccZ_FI_Enable.set('Value', 'on');
-% 
-%     AccZ_FI_FaultType.set('Value', 'Bias/Offset');
-%     
-%     AccZ_FI_FaultValue.set('Value', string(FaultVal(randomIndex_FaultValue)));    
-%     
-%     AccZ_FI_FaultEvent.set('Value', 'Deterministic');
-%     
-% %     randomIndex_Phase_Delay = randi(length(Phase_Delay), 1);
-%     AccZ_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
-%     
-%     AccZ_FI_FaultEffect.set('Value', 'Constant time');
-%     
-% %     randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
-%     AccZ_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
-% 
-%     
-%     noise_Seeds  = Sensors.IMU.noiseSeeds;
-%     new_noise_Seeds = (noise_Seeds + ceil(noise_Seeds*0.05))
-%     Sensors.IMU.noiseSeeds = new_noise_Seeds;
-%        
-    waypoint = wp(:,:,j)
-    
-    try
-        sim('parrotMinidroneWaypointFollower.slx');
-        sm_noise = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
-        ts_name_noise = timeseries(sm_noise,Acc.x.Time);
-        filename = strcat("Faulty_Simulation_wp_",int2str(count),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(l));
-        save(filename,"ts_name_noise",'-v7.3');
-        count = count + 1
-        
-    catch
-        sm_noise = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
-        ts_name_noise = timeseries(sm_noise,Acc.x.Time);
-        filename = strcat("Faulty_Simulation_wp_",int2str(count),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(l));
-        save(filename,"ts_name_noise",'-v7.3');
-        count = count + 1
-        
-    end
-    
-
-    clear sm_noise ts_name_noise Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
-    clear Sensors.IMU.noiseSeeds Fault_Category ;
-    clear AccFI1 AccFI2 AccFI3;
-    clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
-
-    
-    end
-    
-    
-    
-    
-    
-    count = init_count;
-    
-    clear sm Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
-    clear Sensors.IMU.noiseSeeds Fault_Category ;
-    clear AccFI1 AccFI2 AccFI3;
-    clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
-
-       
-    for m = 1:len_sim_each_wp
-        
-    Fault_Category = 4; % package drop
-
-    
-    AccFI1 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI1/FIBlock');
-    AccFI2 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI2/FIBlock');
-    AccFI3 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI3/FIBlock');
-
-    AccX_FI_Enable = AccFI1.Parameters(2);
-    AccX_FI_FaultType = AccFI1.Parameters(3);
-    AccX_FI_FaultValue = AccFI1.Parameters(4);
-    AccX_FI_FaultEvent = AccFI1.Parameters(5);
-    AccX_FI_EventValue = AccFI1.Parameters(6);
-    AccX_FI_FaultEffect = AccFI1.Parameters(7);
-    AccX_FI_EffectValue = AccFI1.Parameters(8);
-                 
-    
-    AccX_FI_Enable.set('Value', 'on');
-
-    AccX_FI_FaultType.set('Value', 'Package drop');
-    
-%     randomIndex_FaultValue = randi(length(FaultVal), 1)
-% 
-    AccX_FI_FaultValue.set('Value', '15');
-    
-    AccX_FI_FaultEvent.set('Value', 'Deterministic');
-    
-    randomIndex_Phase_Delay = randi(length(Phase_Delay), 1)
-    
-    AccX_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
-    
-    AccX_FI_FaultEffect.set('Value', 'Constant time');
-    
-    randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
-    AccX_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
-
-    
-    
-    
-%     AccY_FI_Enable = AccFI2.Parameters(2);
-%     AccY_FI_FaultType = AccFI2.Parameters(3);
-%     AccY_FI_FaultValue = AccFI2.Parameters(4);
-%     AccY_FI_FaultEvent = AccFI2.Parameters(5);
-%     AccY_FI_EventValue = AccFI2.Parameters(6);
-%     AccY_FI_FaultEffect = AccFI2.Parameters(7);
-%     AccY_FI_EffectValue = AccFI2.Parameters(8);
-%                  
-%     
-%     AccY_FI_Enable.set('Value', 'on');
-% 
-%     AccY_FI_FaultType.set('Value', 'Bias/Offset');
-%     
-% %     randomIndex_FaultValue = randi(length(FaultVal), 1)
-% 
-%     AccY_FI_FaultValue.set('Value', string(FaultVal(randomIndex_FaultValue)));    
-%     
-%     AccY_FI_FaultEvent.set('Value', 'Deterministic');
-%     
-% %     randomIndex_Phase_Delay = randi(length(Phase_Delay), 1);
-%     AccY_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
-%     
-%     AccY_FI_FaultEffect.set('Value', 'Constant time');
-%     
-% %     randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
-%     AccY_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
-% 
-%     
-    
-    
-%     AccZ_FI_Enable = AccFI3.Parameters(2);
-%     AccZ_FI_FaultType = AccFI3.Parameters(3);
-%     AccZ_FI_FaultValue = AccFI3.Parameters(4);
-%     AccZ_FI_FaultEvent = AccFI3.Parameters(5);
-%     AccZ_FI_EventValue = AccFI3.Parameters(6);
-%     AccZ_FI_FaultEffect = AccFI3.Parameters(7);
-%     AccZ_FI_EffectValue = AccFI3.Parameters(8);
-%                  
-%     
-%     AccZ_FI_Enable.set('Value', 'on');
-% 
-%     AccZ_FI_FaultType.set('Value', 'Bias/Offset');
-%     
-%     AccZ_FI_FaultValue.set('Value', string(FaultVal(randomIndex_FaultValue)));    
-%     
-%     AccZ_FI_FaultEvent.set('Value', 'Deterministic');
-%     
-% %     randomIndex_Phase_Delay = randi(length(Phase_Delay), 1);
-%     AccZ_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
-%     
-%     AccZ_FI_FaultEffect.set('Value', 'Constant time');
-%     
-% %     randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
-%     AccZ_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
-% 
-%     
-%     noise_Seeds  = Sensors.IMU.noiseSeeds;
-%     new_noise_Seeds = (noise_Seeds + ceil(noise_Seeds*0.05))
-%     Sensors.IMU.noiseSeeds = new_noise_Seeds;
-%        
-    waypoint = wp(:,:,j)
-    
-    try
-        sim('parrotMinidroneWaypointFollower.slx')
-        sm_pd = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
-        ts_name_pd = timeseries(sm_pd,Acc.x.Time);
-        filename = strcat("Faulty_Simulation_wp_",int2str(count),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(m));
-        save(filename,"ts_name_pd",'-v7.3');
-        count = count + 1
-        
-    catch
-        sm_pd = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
-        ts_name_pd = timeseries(sm_pd,Acc.x.Time);
-        filename = strcat("Faulty_Simulation_wp_",int2str(count),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(m));
-        save(filename,"ts_name_pd",'-v7.3');
-        count = count + 1
-        
-    end
-    
-  
-    clear sm_pd ts_name_pd Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
-    clear Sensors.IMU.noiseSeeds Fault_Category ;
-    clear AccFI1 AccFI2 AccFI3;
-    clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
-
-    
-    end
-    
-    
-    
-    
-    
-    
-    
-    
-    clear sm_noise ts_name_noise Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
-    clear Sensors.IMU.noiseSeeds Fault_Category ;
-    clear AccFI1 AccFI2 AccFI3;
-    clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
-
-
-
-    
     
     
 end
 
 
+ clear sm Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
+ clear Sensors.IMU.noiseSeeds Fault_Category ;
+ clear AccFI1 AccFI2 AccFI3;
+ clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
+
+%     
+% for j = 1:num_wp
+%     
+%     
+% %     count = init_count;
+%     Sensors.IMU.noiseSeeds = noise_Seeds_original
+%     
+%    
+%     
+%     for k = 1:len_sim_each_wp
+%         
+%     waypoint = wp(:,:,j)
+%     Fault_Category = 2; % stuck at
+%     
+%     AccFI1 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI1/FIBlock');
+%     AccFI2 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI2/FIBlock');
+%     AccFI3 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI3/FIBlock');
+% 
+%     AccX_FI_Enable = AccFI1.Parameters(2);
+%     AccX_FI_FaultType = AccFI1.Parameters(3);
+%     AccX_FI_FaultValue = AccFI1.Parameters(4);
+%     AccX_FI_FaultEvent = AccFI1.Parameters(5);
+%     AccX_FI_EventValue = AccFI1.Parameters(6);
+%     AccX_FI_FaultEffect = AccFI1.Parameters(7);
+%     AccX_FI_EffectValue = AccFI1.Parameters(8);
+%                  
+%     
+%     AccX_FI_Enable.set('Value', 'on');
+% 
+%     AccX_FI_FaultType.set('Value', 'Stuck-at');
+%     
+% %     randomIndex_FaultValue = randi(length(FaultVal), 1)
+% % 
+% %     AccX_FI_FaultValue.set('Value', string(FaultVal(randomIndex_FaultValue)));
+%     
+%     AccX_FI_FaultEvent.set('Value', 'Deterministic');
+%     
+%     randomIndex_Phase_Delay = randi(length(Phase_Delay), 1)
+%     
+%     AccX_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
+%     
+%     AccX_FI_FaultEffect.set('Value', 'Constant time');
+%     
+%     randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
+%     AccX_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
+%     
+%     try
+%         sim('parrotMinidroneWaypointFollower.slx')
+%         sm_stuckat = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
+%         ts_name_stuckat = timeseries(sm_stuckat,Acc.x.Time);
+%         filename = strcat("Faulty_Simulation_wp_",int2str(j),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(k));
+%         save(filename,"ts_name_stuckat",'-v7.3');
+% %         count = count + 1
+%         
+%     catch
+%         sm_stuckat = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
+%         ts_name_stuckat = timeseries(sm_stuckat,Acc.x.Time);
+%         filename = strcat("Faulty_Simulation_wp_",int2str(j),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(k));
+%         save(filename,"ts_name_stuckat",'-v7.3');
+% %         count = count + 1
+%         
+%     end
+%     
+%    
+%     clear sm_stuckat ts_name_stuckat Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
+%     clear Sensors.IMU.noiseSeeds Fault_Category ;
+%     clear AccFI1 AccFI2 AccFI3;
+%     clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
+% 
+%     
+%     end
+%     
+%     clear sm_stuckat ts_name_stuckat Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
+%     clear Sensors.IMU.noiseSeeds Fault_Category ;
+%     clear AccFI1 AccFI2 AccFI3;
+%     clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
+% 
+%     
+%  end
+%     
+% clear sm Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
+% clear Sensors.IMU.noiseSeeds Fault_Category ;
+% clear AccFI1 AccFI2 AccFI3;
+% clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
+%   
+%     
+%  for j = 1:num_wp
+%     
+%     
+% %     count = init_count;
+%     Sensors.IMU.noiseSeeds = noise_Seeds_original;
+%     
+%     
+%        
+%     for l = 1:len_sim_each_wp
+%         
+%     waypoint = wp(:,:,j)
+%     Fault_Category = 3; % noise
+% 
+%     
+%     AccFI1 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI1/FIBlock');
+%     AccFI2 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI2/FIBlock');
+%     AccFI3 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI3/FIBlock');
+% 
+%     AccX_FI_Enable = AccFI1.Parameters(2);
+%     AccX_FI_FaultType = AccFI1.Parameters(3);
+%     AccX_FI_FaultValue = AccFI1.Parameters(4);
+%     AccX_FI_FaultEvent = AccFI1.Parameters(5);
+%     AccX_FI_EventValue = AccFI1.Parameters(6);
+%     AccX_FI_FaultEffect = AccFI1.Parameters(7);
+%     AccX_FI_EffectValue = AccFI1.Parameters(8);
+%                  
+%     
+%     AccX_FI_Enable.set('Value', 'on');
+% 
+%     AccX_FI_FaultType.set('Value', 'Noise');
+%     
+% %     randomIndex_FaultValue = randi(length(FaultVal), 1)
+% % 
+%     AccX_FI_FaultValue.set('Value', '100');
+%     
+%     AccX_FI_FaultEvent.set('Value', 'Deterministic');
+%     
+%     randomIndex_Phase_Delay = randi(length(Phase_Delay), 1)
+%     
+%     AccX_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
+%     
+%     AccX_FI_FaultEffect.set('Value', 'Constant time');
+%     
+%     randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
+%     AccX_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
+% 
+%          
+%     
+%     try
+%         sim('parrotMinidroneWaypointFollower.slx');
+%         sm_noise = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
+%         ts_name_noise = timeseries(sm_noise,Acc.x.Time);
+%         filename = strcat("Faulty_Simulation_wp_",int2str(j),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(l));
+%         save(filename,"ts_name_noise",'-v7.3');
+% %         count = count + 1
+%         
+%     catch
+%         sm_noise = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
+%         ts_name_noise = timeseries(sm_noise,Acc.x.Time);
+%         filename = strcat("Faulty_Simulation_wp_",int2str(j),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(l));
+%         save(filename,"ts_name_noise",'-v7.3');
+% %         count = count + 1
+%         
+%     end
+%     
+% 
+%     clear sm_noise ts_name_noise Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
+%     clear Sensors.IMU.noiseSeeds Fault_Category ;
+%     clear AccFI1 AccFI2 AccFI3;
+%     clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
+% 
+%     
+%     end
+%     clear sm_noise ts_name_noise Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
+%     clear Sensors.IMU.noiseSeeds Fault_Category ;
+%     clear AccFI1 AccFI2 AccFI3;
+%     clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
+% 
+%    
+%     
+%  end
+%     
+% clear sm Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
+% clear Sensors.IMU.noiseSeeds Fault_Category ;
+% clear AccFI1 AccFI2 AccFI3;
+% clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
+%    
+%     
+%  for j = 1:num_wp
+%     
+%     
+% %     count = init_count;
+%     
+%     
+%        
+%     for m = 1:len_sim_each_wp
+%         
+%     Fault_Category = 4; % package drop
+%     waypoint = wp(:,:,j)
+% 
+%     
+%     AccFI1 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI1/FIBlock');
+%     AccFI2 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI2/FIBlock');
+%     AccFI3 = Simulink.Mask.get('parrotMinidroneWaypointFollower/Sensors Model/Sensors (Dynamics)/Sensor System/IMU_Pressure/HAL_acquisition_creator/Acc Fault Injector/AccFI3/FIBlock');
+% 
+%     AccX_FI_Enable = AccFI1.Parameters(2);
+%     AccX_FI_FaultType = AccFI1.Parameters(3);
+%     AccX_FI_FaultValue = AccFI1.Parameters(4);
+%     AccX_FI_FaultEvent = AccFI1.Parameters(5);
+%     AccX_FI_EventValue = AccFI1.Parameters(6);
+%     AccX_FI_FaultEffect = AccFI1.Parameters(7);
+%     AccX_FI_EffectValue = AccFI1.Parameters(8);
+%                  
+%     
+%     AccX_FI_Enable.set('Value', 'on');
+% 
+%     AccX_FI_FaultType.set('Value', 'Package drop');
+%     
+% %     randomIndex_FaultValue = randi(length(FaultVal), 1)
+% % 
+%     AccX_FI_FaultValue.set('Value', '15');
+%     
+%     AccX_FI_FaultEvent.set('Value', 'Deterministic');
+%     
+%     randomIndex_Phase_Delay = randi(length(Phase_Delay), 1)
+%     
+%     AccX_FI_EventValue.set('Value', string(Phase_Delay(randomIndex_Phase_Delay)));
+%     
+%     AccX_FI_FaultEffect.set('Value', 'Constant time');
+%     
+%     randomIndex_Fault_Dur = randi(length(Fault_Dur), 1)
+%     AccX_FI_EffectValue.set('Value', string(Fault_Dur(randomIndex_Fault_Dur)));
+% 
+%              
+%     try
+%         sim('parrotMinidroneWaypointFollower.slx')
+%         sm_pd = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
+%         ts_name_pd = timeseries(sm_pd,Acc.x.Time);
+%         filename = strcat("Faulty_Simulation_wp_",int2str(j),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(m));
+%         save(filename,"ts_name_pd",'-v7.3');
+% %         count = count + 1
+%         
+%     catch
+%         sm_pd = [ Acc.x.Data Acc.y.Data Acc.z.Data Gyro.Data altitude.Data MotorCmd.Data roll_pitch_yaw.Data ThurstRefOut.Data label.Data];
+%         ts_name_pd = timeseries(sm_pd,Acc.x.Time);
+%         filename = strcat("Faulty_Simulation_wp_",int2str(j),"_Fault_Category_",int2str(Fault_Category),"_count_",int2str(m));
+%         save(filename,"ts_name_pd",'-v7.3');
+% %         count = count + 1
+%         
+%     end
+%     
+%   
+%     clear sm_pd ts_name_pd Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
+%     clear Sensors.IMU.noiseSeeds Fault_Category ;
+%     clear AccFI1 AccFI2 AccFI3;
+%     clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
+% 
+%     
+%     end
+%        
+%     clear sm_noise ts_name_noise Acc Gyro altitude MotorCmd roll_pitch_yaw ThurstRefOut label;
+%     clear Sensors.IMU.noiseSeeds Fault_Category ;
+%     clear AccFI1 AccFI2 AccFI3;
+%     clear AccX_FI_Enable AccX_FI_FaultType AccX_FI_FaultValue AccX_FI_EventValue AccX_FI_FaultEvent AccX_FI_FaultEffect AccX_FI_EffectValue;
+%   
+% end
+% 
+% 
